@@ -36,7 +36,6 @@ npm run dev       # 一条命令：启动数据库 → 迁移 → 播种 → 启
 ### 环境要求
 
 - **Node.js ≥ 20**（实测 v24.20.0）、npm
-- **无需**安装 PostgreSQL、无需 Docker、无需联网、无需任何账号或密钥
 - 端口：`55432`（PostgreSQL）、`3000`（应用），均为本机回环
 
 可通过环境变量覆盖：`PORT`、`PGPORT`、`DATABASE_URL`（指向外部 PostgreSQL 时会自动改用外部库）。
