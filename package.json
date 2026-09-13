@@ -1,0 +1,36 @@
+{
+  "name": "points-rewards-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "任务积分与数字商品兑换 Web App (Next.js + TypeScript + PostgreSQL)",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "next build",
+    "start": "node scripts/start.mjs",
+    "typecheck": "tsc --noEmit",
+    "db:start": "node scripts/db-server.mjs",
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:seed": "node scripts/seed.mjs",
+    "db:reset": "node scripts/reset.mjs && node scripts/migrate.mjs && node scripts/seed.mjs",
+    "check:schema": "node scripts/check-schema.mjs",
+    "check:balances": "node scripts/check-balances.mjs",
+    "test:e2e": "node scripts/e2e-test.mjs"
+  },
+  "dependencies": {
+    "embedded-postgres": "18.4.0-beta.17",
+    "next": "16.3.4",
+    "pg": "8.23.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.4",
+    "@types/pg": "8.23.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "typescript": "5.9.3"
+  },
+  "optionalDependencies": {
+    "@embedded-postgres/windows-x64": "^18.4.0-beta.17"
+  }
+}
