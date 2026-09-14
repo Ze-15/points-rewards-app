@@ -70,18 +70,57 @@ npm run dev       # 一条命令：启动数据库 → 迁移 → 播种 → 启
 
 ### 1. 同一任务奖励不能重复领取
 
-由**数据库唯一约束**裁决，而非应用层判断：
+
+#### 本项目的做法
+
+数据库层加一条唯一约束（`migrations/001_init.sql`）：
 
 ```sql
-UNIQUE (user_id, task_id, period_key)
+CONSTRAINT task_completions_unique UNIQUE (user_id, task_id, period_key)
 ```
 
-领取时用 `ON CONFLICT DO NOTHING` 尝试插入完成记录，**只有真正插入成功（`rowCount === 1`）才加分并写流水**。
+领奖时**不检查，直接尝试插入**，然后看**是否真的插进去了**（`lib/repo.ts` → `claimTask()`）：
 
-- 每日任务的 `period_key` 是日期（`YYYY-MM-DD`），所以次日可再次领取；
-- 一次性任务的 `period_key` 固定为 `'once'`，终身只能领一次。
+```ts
+const inserted = await client.query(
+  `INSERT INTO task_completions (user_id, task_id, period_key, reward)
+   VALUES ($1, $2, $3, $4)
+   ON CONFLICT (user_id, task_id, period_key) DO NOTHING
+   RETURNING id`,
+  [userId, num(task.id), periodKey, task.reward],
+);
 
-并发下两个请求必然只有一个能插入成功，因此不可能重复发放。测试中 10 并发领取同一任务，结果恰好 1 次成功、9 次被识别为已领取。
+// 关键：只有真正插入成功（rowCount === 1）才加分、才写流水
+if (inserted.rowCount === 0) {
+  return { outcome: 'already_claimed', ... };   // 不加分、不写流水
+}
+// 走到这里才 UPDATE 余额 + 写流水
+```
+
+并发时，两个事务同时插入同一组 `(user_id, task_id, period_key)`，PostgreSQL 的唯一索引会让其中一个**阻塞**到另一个提交，然后返回冲突。**结果必然是 1 个成功 + N 个"已领取"。**
+
+#### 关键设计：`period_key` 一招解决两种周期
+
+"每天一次"和"只能一次"这两种需求，用**同一个约束**就解决了——靠 `period_key` 这个文本列：
+
+| 任务类型 | `period_key` 的值 | 效果 |
+|---|---|---|
+| `daily`（每日） | `YYYY-MM-DD`，如 `2025-09-12` | 明天日期变了 → 是不同的"格子" → **能再领** |
+| `once`（一次性） | 固定字符串 `'once'` | 永远是同一个"格子" → **终身只能领一次** |
+
+日期由 `lib/config.ts` 的 `todayPeriodKey()` 生成。
+
+#### 实测结果
+
+**10 个并发请求领取同一任务 → 恰好 1 次成功、9 次被识别为已领取，积分只增加一次。**
+
+#### 一个刻意的设计
+
+重复领取返回的是 **HTTP 200 + `outcome: 'already_claimed'`**，而不是错误码。
+
+理由：**重复点击是人的正常行为，不是程序错误。** 前端据此显示黄色提示而非红色报错。
+
+
 
 ### 2. 重复提交兑换不能重复扣分或发货
 
